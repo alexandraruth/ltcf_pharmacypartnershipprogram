@@ -13,7 +13,7 @@ library(nngeo)
 
 # only run once: API key
 
-Sys.setenv(GOOGLEGEOCODE_API_KEY = "AIzaSyBD21xS5Y2YgE0yuDqRam4HVSgw6QALmKw")
+Sys.setenv(GOOGLEGEOCODE_API_KEY = "KEY HERE")
 
 
 # load data
