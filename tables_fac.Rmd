@@ -1,0 +1,279 @@
+---
+title: "Tables for facility-level data & distance"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(janitor)
+library(arsenal)
+library(table1)
+library(knitr)
+
+
+
+load("snfs_fullsample.Rda")
+load("states_ppp_enroll_table2.Rda")
+
+
+## flag & exclude rows with missing bed counts;
+## generate additional distance variable & Covid variables
+
+snfs <- snfs_nn_all %>%
+  mutate(reason_excluded = ifelse(is.na(number_of_all_beds), "missing_bedct", reason_excluded)) %>%
+  mutate(include = ifelse(is.na(reason_excluded), 1, 0)) %>%
+  mutate(pharm_within5 = ifelse(dist_miles<=5, 1, 0)) %>%
+    mutate(pharm_within3 = ifelse(dist_miles<=3, 1, 0)) %>%
+    mutate(resident_tot_cases_per100beds = round(100*(residents_total_confirmed_covid_19/number_of_all_beds), digits = 2)) %>%
+  mutate(staff_tot_cases_per100beds = round(100*(staff_total_confirmed_covid_19/number_of_all_beds), digits = 2))
+
+# get analytic sample
+
+include <- snfs %>%
+  filter(include==1) 
+
+
+```
+
+```{r, echo=FALSE}
+
+# label columns for included df
+
+label(include$region) <- "Region"
+
+include$metro <- factor(include$metro)
+include$metro <-
+  factor(include$metro,
+         levels=c(1,0),
+         labels=c("Metropolitan area",
+                  "Non-metropolitan area"))
+label(include$metro) <- "Metro area"
+
+label(include$number_of_all_beds) <- "Number of beds in SNF"
+label(include$nov_cases_avg_per_100k) <- "County-level Covid spread (rolling 7-day case count per 100k)"
+label(include$resident_tot_cases_per100beds) <- "Cumulative resident Covid cases per 100 beds"
+label(include$staff_tot_cases_per100beds) <- "Cumulative staff Covid cases per 100 beds"
+
+
+# label columns for snfs df
+
+
+label(snfs$region) <- "Region"
+
+snfs$metro <- factor(snfs$metro)
+snfs$metro <-
+  factor(snfs$metro,
+         levels=c(1,0),
+         labels=c("Metropolitan area",
+                  "Non-metropolitan area"))
+label(snfs$metro) <- "Metro area"
+
+label(snfs$number_of_all_beds) <- "Number of beds in SNF"
+label(snfs$nov_cases_avg_per_100k) <- "County-level Covid spread (rolling 7-day case count per 100k)"
+
+
+```
+
+\
+## **Table 1. SNFs within 75 miles of a CVS or Walgreens**
+\
+```{r table1, echo = FALSE, results = "asis"}
+
+
+include$pharm_within75 <-
+  factor(include$pharm_within75,
+         levels=c(1,0),
+         labels=c("Within 75 miles",
+                  "Outside 75-mile range"))
+
+label(include$pharm_within75) <- "Location"
+
+tab1 <- tableby(pharm_within75 ~ region + metro + number_of_all_beds + nov_cases_avg_per_100k + resident_tot_cases_per100beds + staff_tot_cases_per100beds, 
+                data = include,
+                control = tableby.control(total.pos = "before", digits = 2, digits.pct = 1))
+summary(tab1)
+
+tab1_region <- tableby(region ~ pharm_within75, 
+                           data = include,
+                           control = tableby.control(digits = 2, digits.pct = 2))
+summary(tab1_region)
+
+tab1_metro <- tableby(metro ~ pharm_within75, 
+                           data = include,
+                           control = tableby.control(digits = 2, digits.pct = 2))
+
+summary(tab1_metro)
+
+```
+
+
+
+
+\
+
+## **Table 2. SNFs within 5 miles of a CVS or Walgreens**
+
+\
+```{r table2, echo=FALSE, results="asis"}
+
+
+include$pharm_within5 <-
+  factor(include$pharm_within5,
+         levels=c(1,0),
+         labels=c("Within 5 miles",
+                  "Outside 5-mile range"))
+
+tab2 <- tableby(pharm_within5 ~ region + metro + number_of_all_beds + nov_cases_avg_per_100k + resident_tot_cases_per100beds + staff_tot_cases_per100beds, 
+                data = include,
+                control = tableby.control(total.pos = "before", digits = 2, digits.pct = 1))
+summary(tab2)
+
+
+tab2_region <- tableby(region ~ pharm_within5, 
+                           data = include,
+                           control = tableby.control(digits = 2, digits.pct = 2))
+summary(tab2_region)
+
+tab2_metro <- tableby(metro ~ pharm_within5, 
+                           data = include,
+                           control = tableby.control(digits = 2, digits.pct = 2))
+
+summary(tab2_metro)
+
+```
+
+\
+
+
+## **Table 2. SNFs within 3 miles of a CVS or Walgreens**
+
+\
+```{r table3, echo=FALSE, results="asis"}
+
+
+include$pharm_within3 <-
+  factor(include$pharm_within3,
+         levels=c(1,0),
+         labels=c("Within 3 miles",
+                  "Outside 3-mile range"))
+
+tab3 <- tableby(pharm_within3 ~ region + metro + number_of_all_beds + nov_cases_avg_per_100k + resident_tot_cases_per100beds + staff_tot_cases_per100beds, 
+                data = include,
+                control = tableby.control(total.pos = "before", digits = 2, digits.pct = 1))
+summary(tab3)
+
+
+tab3_region <- tableby(region ~ pharm_within3, 
+                           data = include,
+                           control = tableby.control(digits = 2, digits.pct = 2))
+summary(tab3_region)
+
+tab3_metro <- tableby(metro ~ pharm_within3, 
+                           data = include,
+                           control = tableby.control(digits = 2, digits.pct = 2))
+
+summary(tab3_metro)
+
+```
+
+\
+
+## **Characteristics of included and excluded SNFs**
+\
+```{r inclusion, echo=FALSE, results = "asis"}
+
+snfs <- snfs %>%
+  mutate(reason_excluded = ifelse(is.na(reason_excluded), "include", reason_excluded))
+
+
+
+snfs$reason_excluded <-
+  factor(snfs$reason_excluded,
+         levels=c("include", "data_dns", "qa_dnp", "weeks_missing", "missing_bedct"),
+         labels=c("Included",
+                  "Did not submit any data",
+                  "Did not pass quality assurance check",
+                  "Missing any week of data in Nov. 2020",
+                  "Missing bed count data"))
+label(snfs$reason_excluded) <- "Reason excluded"
+
+
+snfs$pharm_within75 <-
+  factor(snfs$pharm_within75,
+         levels=c(1,0),
+         labels=c("Within 75 miles of a pharmacy partner",
+                  "More than 75 miles from a pharmacy partner"))
+label(snfs$pharm_within75) <- "Within 75-mile eligibility range"
+
+
+snfs$pharm_within5 <-
+  factor(snfs$pharm_within5,
+         levels=c(1,0),
+         labels=c("Within 5 miles of a pharmacy partner",
+                  "More than 5 miles from a pharmacy partner (outliers)"))
+label(snfs$pharm_within5) <- "Within 5 miles"
+
+
+tab_inclusion <- tableby( reason_excluded ~ region + metro + nov_cases_avg_per_100k  + pharm_within75 + pharm_within5,
+          data = snfs,
+          control = tableby.control(total.pos = "before", digits = 2, digits.pct = 1))
+
+summary(tab_inclusion)
+
+
+tab_incl_region <- tableby(region ~ reason_excluded, 
+                           data = snfs,
+                           control = tableby.control(digits = 2, digits.pct = 2))
+summary(tab_incl_region)
+
+tab_incl_metro <- tableby(metro ~ reason_excluded, 
+                           data = snfs,
+                           control = tableby.control(digits = 2, digits.pct = 2))
+
+summary(tab_incl_metro)
+
+tab_incl_75 <- tableby(pharm_within75 ~ reason_excluded, 
+                           data = snfs,
+                           control = tableby.control(digits = 2, digits.pct = 2))
+
+summary(tab_incl_75)
+
+tab_incl_5 <- tableby(pharm_within5 ~ reason_excluded, 
+                           data = snfs,
+                           control = tableby.control(digits = 2, digits.pct = 2))
+
+summary(tab_incl_5)
+
+```
+
+
+## State-level partnership program info
+
+``` {r stateppp, echo = FALSE, results="asis"}
+
+state_table <- states_ppp_enroll_table2 %>%
+  select(state, snfs_num, partnered_cvs, partnered_walgreen, snfs_cvs_pct, snfs_walgreen_pct, partnered_pct, cvs_num, wal_num) %>%
+  mutate(snfs_cvs_pct = round(snfs_cvs_pct*100, digits=2)) %>%
+  mutate(snfs_walgreen_pct = round(snfs_walgreen_pct*100, digits=2)) %>%
+  mutate(partnered_pct = round(partnered_pct*100, digits=2)) 
+
+kable(state_table)
+
+```
+
+# get plot of distance
+
+```{r }
+a <- ggplot(include, aes(x = dist_miles))
+
+
+p <- a + geom_density(aes(y = ..count..), fill = "lightgray") 
+
+
+p
+
+```
